@@ -1,0 +1,14 @@
+{
+  "lib/forge-std": {
+    "tag": {
+      "name": "v1.10.0",
+      "rev": "8bbcf6e3f8f62f419e5429a0bd89331c85c37824"
+    }
+  },
+  "lib/foundry-devops": {
+    "tag": {
+      "name": "0.2.2",
+      "rev": "df9f90b490423578142b5dd50752db9427efb2ac"
+    }
+  }
+}
