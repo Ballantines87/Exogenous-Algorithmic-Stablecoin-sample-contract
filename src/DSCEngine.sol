@@ -44,14 +44,17 @@ pragma solidity ^0.8.19;
 */
 
 import {IDSCEngine} from "../interfaces/IDSCEngine.sol";
+import {DecentralizedStableCoin} from "../src/DecentralizedStableCoin.sol";
+import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-contract DSCEngine is IDSCEngine {
+contract DSCEngine is IDSCEngine, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
     error DSCEngine__AmountNeedsToBeMoreThanZero();
     error DSCEngine__TokenNotAllowed();
+    error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -59,6 +62,8 @@ contract DSCEngine is IDSCEngine {
 
     mapping(address tokenAddress => address priceFeedAddress)
         private s_tokenAddressToPriceFeed;
+
+    DecentralizedStableCoin private immutable i_dscContractAddress;
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -79,8 +84,23 @@ contract DSCEngine is IDSCEngine {
     /*//////////////////////////////////////////////////////////////
                                FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    constructor(address collateralTokenAddress, address priceFeed) {
-        s_tokenAddressToPriceFeed[collateralTokenAddress] = priceFeed;
+    constructor(
+        address[] memory collateralTokenAddresses,
+        address[] memory priceFeedAddresses,
+        address _dscContractAddress
+    ) {
+        if (collateralTokenAddresses.length != priceFeedAddresses.length) {
+            revert DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
+        }
+
+        for (uint index = 0; index < collateralTokenAddresses.length; index++) {
+            // ETH / USD price feed and BTC / USD price feed
+            s_tokenAddressToPriceFeed[
+                collateralTokenAddresses[index]
+            ] = priceFeedAddresses[index];
+        }
+
+        i_dscContractAddress = DecentralizedStableCoin(_dscContractAddress);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -103,6 +123,7 @@ contract DSCEngine is IDSCEngine {
         override
         moreThanZero(amountCollateral)
         isAllowedToken(tokenCollateralAddress)
+        nonReentrant
     {}
 
     function redeemCollateralForDsc() external override {}
