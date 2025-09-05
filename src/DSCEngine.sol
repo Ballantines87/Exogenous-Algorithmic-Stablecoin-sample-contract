@@ -59,11 +59,18 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
     error DSCEngine__TokenNotAllowed();
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine__TransferFailed();
-    error DSCEngine__HealthFactorIsBelowMinimum();
+    error DSCEngine__HealthFactorIsBelowMinimum(uint256 userHealthFactor);
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
+    uint256 public constant LIQUIDATION_THRESHOLD = 50; // that means 200% overcollateralized
+
+    uint256 public constant LIQUIDATION_PRECISION = 100; // this is to handle percentages with whole numbers
+
+    uint256 public constant PRECISION = 1e18; // to handle decimal places in solidity (18 decimal places)
+
+    uint256 public constant MIN_HEALTH_FACTOR = 1;
 
     address[] private s_collateralTokens;
 
@@ -76,12 +83,10 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
     mapping(address userAddress => mapping(address tokenAddress => uint256 collateralAmountDeposited))
         private s_collateralDeposited;
 
-    mapping(address userAddress => uint256 totalDSCMintedByUser)
-        private s_userToTotalDSCMintedByUser;
+    mapping(address userAddress => uint256 totalDscMintedByUser)
+        private s_userToTotalDscMintedByUser;
 
     DecentralizedStableCoin private immutable i_dscContractAddress;
-
-    uint256 public constant MIN_HEALTH_FACTOR = 10;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -205,7 +210,7 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
         uint256 amountDscToMint
     ) external override moreThanZero(amountDscToMint) nonReentrant {
         // checks
-        s_userToTotalDSCMintedByUser[msg.sender] += amountDscToMint;
+        s_userToTotalDscMintedByUser[msg.sender] += amountDscToMint;
 
         _revertIfHealthFactorIsBroken(msg.sender);
 
@@ -232,10 +237,10 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
     function getTotalDscMintedByUser(
         address user
     ) public view returns (uint256) {
-        return s_userToTotalDSCMintedByUser[user];
+        return s_userToTotalDscMintedByUser[user];
     }
 
-    function getAccountCollateralValue(
+    function getAccountCollateralValueInUsd(
         address user
     ) public view returns (uint256 accountCollateralValueOfUser) {
         // 1. loop through each collateral token
@@ -296,12 +301,20 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
             uint256 totalDscMintedByUser,
             uint256 collateralValueOfUserInUsdOfUser
         ) = _getAccountInformation(user);
+
+        // e.g. 1000$ of ETH * 50 = 50000 / 100 = 500
+        uint256 collateralAdjustedForThreshold = (collateralValueOfUserInUsdOfUser *
+                LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+
+        // if this is less than 1 you can get liquidated
+        return
+            (collateralAdjustedForThreshold * PRECISION) / totalDscMintedByUser;
     }
 
     function _revertIfHealthFactorIsBroken(address user) internal view {
-        uint256 userHealthFactor = getHealthFactor(user);
+        uint256 userHealthFactor = _healthFactor(user);
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
-            revert DSCEngine__HealthFactorIsBelowMinimum();
+            revert DSCEngine__HealthFactorIsBelowMinimum(userHealthFactor);
         }
     }
 
@@ -316,6 +329,6 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
         )
     {
         totalDscMintedByUser = getTotalDscMintedByUser(user);
-        collateralValueOfUserInUsdOfUser = getAccountCollateralValue(user);
+        collateralValueOfUserInUsdOfUser = getAccountCollateralValueInUsd(user);
     }
 }
