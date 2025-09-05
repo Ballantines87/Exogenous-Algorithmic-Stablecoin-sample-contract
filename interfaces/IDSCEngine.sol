@@ -13,7 +13,7 @@ interface IDSCEngine {
 
     function redeemCollateralForDsc() external;
 
-    function mintDsc() external;
+    function mintDsc(uint256 amountDscToMint) external;
 
     // allows to burn DSC to reduce debt
     function burnDsc() external;
@@ -23,5 +23,5 @@ interface IDSCEngine {
     function liquidate() external;
 
     // allows people to see how close to liquidation people are to the liquidation threshold
-    function getHealthFactor() external view returns (uint256);
+    function getHealthFactor(address user) external view returns (uint256);
 }

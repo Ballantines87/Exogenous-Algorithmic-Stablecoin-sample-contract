@@ -9,4 +9,7 @@ fs_permissions = [
     { access = "read", path = "./reports" },
 ]
 
-remappings = ['@openzeppelin/contracts=lib/openzeppelin-contracts/contracts']
+remappings = [
+    '@openzeppelin/contracts=lib/openzeppelin-contracts/contracts',
+    '@chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/',
+]
