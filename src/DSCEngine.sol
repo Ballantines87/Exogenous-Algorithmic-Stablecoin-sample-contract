@@ -60,6 +60,7 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine__TransferFailed();
     error DSCEngine__HealthFactorIsBelowMinimum(uint256 userHealthFactor);
+    error DSCEngine__MintFailed();
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -103,6 +104,8 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
         address indexed token,
         uint256 indexed amount
     );
+
+    event Minted(address indexed minter, uint256 indexed amountDscMinted);
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -215,12 +218,16 @@ contract DSCEngine is IDSCEngine, ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender);
 
         // effects (inside the contract)
-        i_dscContractAddress.mint(msg.sender, amountDscToMint);
-        emit TransferFrom(
-            address(this),
-            address(i_dscContractAddress),
+        bool successfullyMinted = i_dscContractAddress.mint(
+            msg.sender,
             amountDscToMint
         );
+
+        emit Minted(msg.sender, amountDscToMint);
+
+        if (!successfullyMinted) {
+            revert DSCEngine__MintFailed();
+        }
 
         // interactions (external interactions)
     }
